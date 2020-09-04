@@ -1,13 +1,13 @@
 import json
-from flask import request, _request_ctx_stack
+from flask import request, abort
 from functools import wraps
 from jose import jwt
 from urllib.request import urlopen
 
 
-AUTH0_DOMAIN = 'udacity-fsnd.auth0.com'
+AUTH0_DOMAIN = 'amrikhudair.eu.auth0.com'
 ALGORITHMS = ['RS256']
-API_AUDIENCE = 'dev'
+API_AUDIENCE = 'https://coffee-shop.test'
 
 ## AuthError Exception
 '''
@@ -23,7 +23,6 @@ class AuthError(Exception):
 ## Auth Header
 
 '''
-@TODO implement get_token_auth_header() method
     it should attempt to get the header from the request
         it should raise an AuthError if no header is present
     it should attempt to split bearer and the token
@@ -31,10 +30,24 @@ class AuthError(Exception):
     return the token part of the header
 '''
 def get_token_auth_header():
-   raise Exception('Not Implemented')
+    auth = request.headers.get('Authorization', '')
+
+    if not auth:
+        auth_error(
+            'authorization_header_missing',
+            'Authorization header is expected.'
+        )
+
+    parts = auth.split(' ')
+
+    if len(parts) > 2 or parts[0].lower() != 'bearer':
+        auth_error('invalid_header', 'Authorization header must be bearer token.')
+
+    if len(parts) == 1: auth_error('invalid_header', 'Token not found.')
+
+    return parts[1]
 
 '''
-@TODO implement check_permissions(permission, payload) method
     @INPUTS
         permission: string permission (i.e. 'post:drink')
         payload: decoded jwt payload
@@ -45,10 +58,10 @@ def get_token_auth_header():
     return true otherwise
 '''
 def check_permissions(permission, payload):
-    raise Exception('Not Implemented')
+    if 'permissions' not in payload: abort(401)
+    if permission not in payload['permissions']: abort(403)
 
 '''
-@TODO implement verify_decode_jwt(token) method
     @INPUTS
         token: a json web token (string)
 
@@ -61,10 +74,47 @@ def check_permissions(permission, payload):
     !!NOTE urlopen has a common certificate error described here: https://stackoverflow.com/questions/50236117/scraping-ssl-certificate-verify-failed-error-for-http-en-wikipedia-org
 '''
 def verify_decode_jwt(token):
-    raise Exception('Not Implemented')
+    jsonurl = urlopen(f'https://{AUTH0_DOMAIN}/.well-known/jwks.json')
+    jwks = json.loads(jsonurl.read())
+    header = jwt.get_unverified_header(token)
+
+    if 'kid' not in header:
+        auth_error('invalid_header', 'Authorization is malformed.')
+
+    key = next((k for k in jwk['keys'] if k['kid'] == header['kid']), None)
+
+    if not key:
+        auth_error('invalid_header', 'Unable to find the appropriate key.')
+
+    try:
+        return jwt.decode(
+            token, key, algorith=ALGORITHMS,
+            audience=API_AUDIENCE, issuer=f'https://{AUTH0_DOMAIN}/'
+        )
+
+    except jwt.ExpiredSignatureError:
+        auth_error('token_expired', 'Token Expired')
+
+    except jwt.JWTClaimsError:
+        auth_error(
+            'invalid_claims',
+            'Incorrect claims. Please, check the audience and issuer.'
+        )
+
+    except Exception:
+        auth_error('invalid_header', 'Unable to parse authentication token.')
 
 '''
-@TODO implement @requires_auth(permission) decorator method
+    @INPUTS
+        code: the auth error code (string)
+        description: the auth error description (string)
+
+    Raises an AuthError with given code and parameter
+'''
+def auth_error(code, description):
+    raise AuthError({ 'code': code, 'description': description }, 401)
+
+'''
     @INPUTS
         permission: string permission (i.e. 'post:drink')
 

@@ -32,6 +32,10 @@ This will install all of the required packages we selected within the `requireme
 
 ## Running the server
 
+If you run this application for the first time or need to reset the project data,
+please run this command in backend directory:
+`python3 -m src.db_drop_and_create_all`
+
 From within the `./src` directory first ensure you are working using your created virtual environment.
 
 Each time you open a new terminal session, run:
@@ -69,7 +73,7 @@ The `--reload` flag will detect file changes and restart the server automaticall
         - can `get:drinks-detail`
     - Manager
         - can perform all actions
-7. Test your endpoints with [Postman](https://getpostman.com). 
+7. Test your endpoints with [Postman](https://getpostman.com).
     - Register 2 users - assign the Barista role to one and Manager role to the other.
     - Sign into each account and make note of the JWT.
     - Import the postman collection `./starter_code/backend/udacity-fsnd-udaspicelatte.postman_collection.json`

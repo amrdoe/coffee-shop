@@ -1,8 +1,9 @@
 import json
-from flask import request, abort
+from flask import request
 from functools import wraps
 from jose import jwt
 from urllib.request import urlopen
+from sys import stderr
 
 
 AUTH0_DOMAIN = 'amrikhudair.eu.auth0.com'
@@ -33,7 +34,7 @@ def get_token_auth_header():
     auth = request.headers.get('Authorization', '')
 
     if not auth:
-        auth_error(
+        auth_e401(
             'authorization_header_missing',
             'Authorization header is expected.'
         )
@@ -41,9 +42,9 @@ def get_token_auth_header():
     parts = auth.split(' ')
 
     if len(parts) > 2 or parts[0].lower() != 'bearer':
-        auth_error('invalid_header', 'Authorization header must be bearer token.')
+        auth_e401('invalid_header', 'Authorization header must be bearer token.')
 
-    if len(parts) == 1: auth_error('invalid_header', 'Token not found.')
+    if len(parts) == 1: auth_e401('invalid_header', 'Token not found.')
 
     return parts[1]
 
@@ -58,8 +59,13 @@ def get_token_auth_header():
     return true otherwise
 '''
 def check_permissions(permission, payload):
-    if 'permissions' not in payload: abort(401)
-    if permission not in payload['permissions']: abort(403)
+    if 'permissions' not in payload:
+        auth_e403('invalid_header', 'Permissions are not defined in token.')
+    if permission not in payload['permissions']:
+        auth_e403(
+            'not_permitted',
+            'You don\'t have suffecient permission to perform this task.'
+        )
 
 '''
     @INPUTS
@@ -79,39 +85,50 @@ def verify_decode_jwt(token):
     header = jwt.get_unverified_header(token)
 
     if 'kid' not in header:
-        auth_error('invalid_header', 'Authorization is malformed.')
+        auth_e401('invalid_header', 'Authorization is malformed.')
 
-    key = next((k for k in jwk['keys'] if k['kid'] == header['kid']), None)
+    key = next((k for k in jwks['keys'] if k['kid'] == header['kid']), None)
 
     if not key:
-        auth_error('invalid_header', 'Unable to find the appropriate key.')
+        auth_e401('invalid_header', 'Unable to find the appropriate key.')
 
     try:
         return jwt.decode(
-            token, key, algorith=ALGORITHMS,
+            token, key, algorithms=ALGORITHMS,
             audience=API_AUDIENCE, issuer=f'https://{AUTH0_DOMAIN}/'
         )
 
     except jwt.ExpiredSignatureError:
-        auth_error('token_expired', 'Token Expired')
+        auth_e401('token_expired', 'Token Expired')
 
     except jwt.JWTClaimsError:
-        auth_error(
+        auth_e401(
             'invalid_claims',
             'Incorrect claims. Please, check the audience and issuer.'
         )
 
-    except Exception:
-        auth_error('invalid_header', 'Unable to parse authentication token.')
+    except Exception as e:
+        print(e, file=stderr)
+        auth_e401('invalid_header', 'Unable to parse authentication token.')
 
 '''
     @INPUTS
         code: the auth error code (string)
         description: the auth error description (string)
 
-    Raises an AuthError with given code and parameter
+    Raises an AuthError with given code and parameter and 401 status
 '''
-def auth_error(code, description):
+def auth_e401(code, description):
+    raise AuthError({ 'code': code, 'description': description }, 401)
+
+'''
+    @INPUTS
+        code: the auth error code (string)
+        description: the auth error description (string)
+
+    Raises an AuthError with given code and parameter and 403 error
+'''
+def auth_e403(code, description):
     raise AuthError({ 'code': code, 'description': description }, 401)
 
 '''
@@ -130,7 +147,7 @@ def requires_auth(permission=''):
             token = get_token_auth_header()
             payload = verify_decode_jwt(token)
             check_permissions(permission, payload)
-            return f(payload, *args, **kwargs)
+            return f(*args, **kwargs)
 
         return wrapper
     return requires_auth_decorator

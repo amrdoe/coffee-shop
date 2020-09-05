@@ -2,6 +2,7 @@ import os
 from sqlalchemy import Column, String, Integer
 from flask_sqlalchemy import SQLAlchemy
 import json
+from sys import stderr
 
 database_filename = "database.db"
 project_dir = os.path.dirname(os.path.abspath(__file__))
@@ -30,8 +31,49 @@ def db_drop_and_create_all():
     db.create_all()
 
 '''
+@transaction
+    performs the request in an isolated transaction with error catching
+'''
+class Transaction:
+    def __init__(self, t):
+        self.__transaction = t
+        self.__success = None
+        self.__fail = None
+
+    def __call__(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
+
+    def run(self, *args, **kwargs):
+        response = None
+
+        try:
+            response = self.__transaction(*args, **kwargs)
+            db.session.commit()
+            if callable(self.__success): response = self.__success(response)
+
+        except Exception as e:
+            db.session.rollback()
+            if callable(self.__fail):
+                print(e, file=stderr)
+                response = self.__fail(response)
+            else: raise e
+
+        finally:
+            db.session.close()
+
+        return response
+
+    def success(self, s):
+        self.__success = s
+        return self
+
+    def fail(self, f):
+        self.__fail = f
+        return self
+
+'''
 Drink
-a persistent drink entity, extends the base SQLAlchemy Model
+    a persistent drink entity, extends the base SQLAlchemy Model
 '''
 class Drink(db.Model):
     # Autoincrementing, unique primary key
@@ -77,7 +119,6 @@ class Drink(db.Model):
     '''
     def insert(self):
         db.session.add(self)
-        db.session.commit()
 
     '''
     delete()
@@ -89,19 +130,6 @@ class Drink(db.Model):
     '''
     def delete(self):
         db.session.delete(self)
-        db.session.commit()
-
-    '''
-    update()
-        updates a new model into a database
-        the model must exist in the database
-        EXAMPLE
-            drink = Drink.query.filter(Drink.id == id).one_or_none()
-            drink.title = 'Black Coffee'
-            drink.update()
-    '''
-    def update(self):
-        db.session.commit()
 
     def __repr__(self):
         return json.dumps(self.short())

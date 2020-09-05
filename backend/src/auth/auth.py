@@ -64,7 +64,7 @@ def check_permissions(permission, payload):
     if permission not in payload['permissions']:
         auth_e403(
             'not_permitted',
-            'You don\'t have suffecient permission to perform this task.'
+            'You don\'t have suffecient permission to perform this action.'
         )
 
 '''
@@ -129,7 +129,7 @@ def auth_e401(code, description):
     Raises an AuthError with given code and parameter and 403 error
 '''
 def auth_e403(code, description):
-    raise AuthError({ 'code': code, 'description': description }, 401)
+    raise AuthError({ 'code': code, 'description': description }, 403)
 
 '''
     @INPUTS

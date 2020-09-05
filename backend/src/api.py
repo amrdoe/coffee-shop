@@ -134,13 +134,6 @@ def delete_drinks(id):
         drink.delete()
         return drink
 
-        response = {
-            'success': True,
-            'delete': drink.id
-        }
-
-        return jsonify(response)
-
     success = lambda drink: jsonify({ 'success': True, 'delete': drink.id })
     return tx.success(success).run()
 

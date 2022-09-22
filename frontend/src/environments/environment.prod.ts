@@ -1,3 +1,4 @@
 export const environment = {
-  production: true
+  production: true,
+  apiServerUrl: 'https://coffee-shop-backend.onrender.com/', // the running FLASK api server url
 };

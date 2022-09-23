@@ -1,5 +1,6 @@
 {
   "name": "udaspicelatte",
+  "description": "An Ionic project",
   "version": "0.0.1",
   "author": "Ionic Framework",
   "homepage": "https://ionicframework.com/",
@@ -58,5 +59,7 @@
     "tslint": "~5.16.0",
     "typescript": "~3.1.6"
   },
-  "description": "An Ionic project"
+  "engines": {
+    "node": "12.22.12"
+  }
 }
